@@ -7,7 +7,7 @@
 
 2. Navigate to the project root directory by running the following command in your terminal:
    ```shell
-   cd thesis
+   cd bfh24
    ```
 
 3. Create a virtual environment and activate it.
