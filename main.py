@@ -7,6 +7,8 @@ import logging
 
 import src.utils.utils as utils
 
+from src.utils.config_manager import ConfigManager
+
 utils.setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,8 @@ logger = logging.getLogger(__name__)
 def main():
     # Parse CLI arguments and config file as dict
     CLI_ARGS: dict = utils.parse_args()
-    CFG: dict = utils.load_config(CLI_ARGS.get("config"))
+    CFG_MNGR: ConfigManager = ConfigManager(CLI_ARGS.get("config"))
+    CFG: dict = CFG_MNGR.config
 
     print(CFG)
 
