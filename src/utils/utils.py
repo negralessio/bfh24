@@ -1,4 +1,3 @@
-import yaml
 import argparse
 import logging
 
@@ -28,25 +27,6 @@ def parse_args() -> Dict:
     logger.info(f"Successfully parsed {len(args_dict.keys())} CLI argument(s).")
 
     return args_dict
-
-
-def load_config(config_path: str = "configs/config.yaml") -> Dict:
-    """
-    Loads a YAML configuration file as a dict given the path.
-
-    :param config_path: str -- Path to the configuration file (default: "configs/config.yaml")
-    :return: dict -- Configuration dictionary
-    """
-    try:
-        with open(config_path, "r") as yamlfile:
-            logger.info(f"Loading yaml file at '{config_path}' ...")
-            return yaml.load(yamlfile, yaml.FullLoader)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"File {config_path} not found!")
-    except PermissionError:
-        raise PermissionError(f"Insufficient permission to read {config_path}!")
-    except IsADirectoryError:
-        raise IsADirectoryError(f"{config_path} is a directory!")
 
 
 def setup_logging(loglevel=logging.INFO) -> None:
