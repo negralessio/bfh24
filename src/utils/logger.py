@@ -5,13 +5,13 @@ import colorlog
 
 formatter = colorlog.ColoredFormatter(
     "%(asctime)s [%(blue)s%(name)s:%(lineno)s%(reset)s] [%(log_color)s%(levelname)s%(reset)s] >>>> %(message)s",
-    log_colors={ # 'DEBUG': cyan',
-        'INFO': 'green',
-        'WARNING': 'yellow',
-        'ERROR': 'red',
-        'CRITICAL': 'red,bg_white',
+    log_colors={  # 'DEBUG': cyan',
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "red,bg_white",
     },
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 stream_handler = colorlog.StreamHandler(stream=sys.stdout)
 stream_handler.setFormatter(formatter)
