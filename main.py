@@ -9,8 +9,9 @@ import src.utils.utils as utils
 
 from src.utils.config_manager import ConfigManager
 
-utils.setup_logging()
-logger = logging.getLogger(__name__)
+from src.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def main():

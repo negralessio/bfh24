@@ -3,7 +3,9 @@ import logging
 
 from typing import Dict
 
-logger = logging.getLogger(__name__)
+from src.utils.logger import setup_logger
+
+logger = setup_logger(__name__, logging.WARNING)
 
 
 def parse_args() -> Dict:
@@ -27,16 +29,3 @@ def parse_args() -> Dict:
     logger.info(f"Successfully parsed {len(args_dict.keys())} CLI argument(s).")
 
     return args_dict
-
-
-def setup_logging(loglevel=logging.INFO) -> None:
-    """Handles the logger setup / configuration
-
-    :param loglevel: Level of logging, e.g. {logging.DEBUG, logging.INFO}
-    :return: None
-    """
-    logging.basicConfig(
-        level=loglevel,
-        format="%(asctime)s [%(name)s:%(lineno)s] [%(levelname)s] >>> %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
