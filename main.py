@@ -3,12 +3,9 @@ Entry point of the Pipeline
 Execute from root dir via "python3 main.py --config configs/config.yaml"
 """
 
-import logging
-
 import src.utils.utils as utils
 
 from src.utils.config_manager import ConfigManager
-
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)

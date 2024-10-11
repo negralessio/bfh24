@@ -1,4 +1,13 @@
-# 👨🏽‍💻 Setup Project
+# 🌲 Black Forest Hackathon 2024
+Challenge: **Recommendation for the optimised post-purchase timing of oil, taking internal external forecasting contexts into account**
+
+## 📚 Pipeline Description
+* Using weather forecasting API
+* [ ] Implementing oil price forcasting
+* [ ] Implementing oil consumption forcasting
+* [ ] Implementing Rule based system for recommendation (Comparison between current and forecasted values (oil price in euro/liters)
+
+## 👨🏽‍💻 Setup Project
 
 1. Clone the repository by running the following command:
    ```shell
