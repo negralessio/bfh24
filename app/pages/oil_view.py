@@ -1,6 +1,8 @@
 import streamlit as st
 from streamlit_extras.grid import grid
 import plotly.graph_objects as go
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 # Charts
@@ -44,6 +46,19 @@ def create_fuel_gauge(fuel_level, max_fuel_level, min_value=0, max_value=None):
     return fig
 
 
+def load_data(file_path: str):
+    df = pd.read_pickle(file_path)
+    df = df[df["Tank-ID"] != 5]
+
+    # Berechne mindesfüllmenge mit 20%
+    df["Warnungsfüllstand"] = df["Maximale Füllgrenze"] * 0.2
+
+    return df
+
+
+df = load_data("data/processed/data_one_day_clean.pickle")
+
+
 def view_oil_forecast_page(CFG: dict) -> None:
     # Own Styles
     st.markdown(
@@ -59,8 +74,21 @@ def view_oil_forecast_page(CFG: dict) -> None:
         unsafe_allow_html=True,
     )
 
+    with st.sidebar:
+        tank_id = st.selectbox("Select the tank", list(df["Tank-ID"].unique()))
+        number_of_days = st.slider(
+            "Select number of days",
+            min_value=1,
+            max_value=len(df[df["Tank-ID"] == tank_id]["Zeitstempel"]),
+            value=90,
+            step=1,
+            help="Show oil consumption of the last n days",
+        )
+
     # Content
     st.header("Dashboard")
+
+    filtered_data = df[(df["Tank-ID"] == tank_id)]
 
     # Using grid layout for alignment
     my_grid = grid([2, 2], 1, vertical_align="bottom")
@@ -69,20 +97,37 @@ def view_oil_forecast_page(CFG: dict) -> None:
     with my_grid.container():
         col1, col2 = st.columns(2)  # Create two columns for the first row
         with col1:
-            st.metric("Total Sensors:", "0.00 Euro", "0.00")
+            st.metric(
+                "Current liters of oil:",
+                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]}",
+            )
         with col2:
-            st.metric("Total Heating Oil:", "0.00 Euro", "0.00")
+            st.metric(
+                "Maximum charge:",
+                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Maximale Füllgrenze'].values[0]}",
+            )
 
     # Row 2:
     with my_grid.container():
         col3, col4 = st.columns(2)  # Create two columns for the second row
         with col3:
-            # Gauge Chart
-            gauge_fig = create_fuel_gauge(50, 100)  # Create the gauge chart
-            st.plotly_chart(gauge_fig, use_container_width=True)  # Display the gauge chart
+            st.metric(
+                "Need to buy (at a reserve of ):",
+                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Warnungsfüllstand'].values[0]}",
+            )
 
         with col4:
-            st.metric("Current Heating Oil Price:", "0.00 Euro", "0.00")
+            st.metric("Oil consumption yesterday:", "TBD liters", "0.00")
+
+    # Row 3
+    with my_grid.container():
+        filtered_data = filtered_data.sort_values("Zeitstempel").tail(number_of_days)
+        st.line_chart(
+            data=filtered_data,
+            x="Zeitstempel",
+            y=["Füllstand", "Warnungsfüllstand", "Maximale Füllgrenze"],
+            color=["#0000FF", "#FF0000", "#FF0000"],
+        )
 
 
 # Assuming this function is called to render the page
