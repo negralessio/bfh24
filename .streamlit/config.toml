@@ -4,3 +4,14 @@ backgroundColor="#FFFFFF"
 secondaryBackgroundColor="#B3B3B2"
 textColor="#31333F"
 font="sans serif"
+
+[client]
+# Change the visibility of items in the toolbar, options menu,
+# and settings dialog (top right of the app).
+# Default: "auto"
+toolbarMode = "viewer"
+
+[browser]
+# Whether to send usage statistics to Streamlit.
+# Default: true
+gatherUsageStats = false
