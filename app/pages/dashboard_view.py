@@ -3,6 +3,8 @@ import streamlit as st
 from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
+import folium
+from streamlit_folium import st_folium
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -127,6 +129,8 @@ def load_data(file_path: str) -> pd.DataFrame:
             "PLZ",
             "Oil Price",
             "Avg. Temperatur (+15 Tage)",
+            "Längengrad",
+            "Breitengrad",
         ]
     ]
     today_data["Avg. Temperatur (+15 Tage)"] = today_data["Avg. Temperatur (+15 Tage)"].round(2)
@@ -141,6 +145,8 @@ def load_data(file_path: str) -> pd.DataFrame:
             "PLZ",
             "Oil Price",
             "Avg. Temperatur (+15 Tage)",
+            "Längengrad",
+            "Breitengrad",
         ]
     ]
     yesterday_data["Avg. Temperatur (+15 Tage)"] = yesterday_data["Avg. Temperatur (+15 Tage)"].round(2)
@@ -269,7 +275,27 @@ def view_dashboard_page(CFG: dict) -> None:
             )
 
         with tab3:
-            st.header("TBD")
+            # Create a map
+            map_data = yesterday_data.rename(columns={"Breitengrad": "latitude", "Längengrad": "longitude"})
+            m = folium.Map(location=[map_data["latitude"].mean(), map_data["longitude"].mean()], zoom_start=12)
+
+            # Function to determine the size of the markers
+            def get_marker_size(prozentualer_fuellstand):
+                return prozentualer_fuellstand * 0.2  # Adjust scaling as needed
+
+            # Add markers to the map
+            for _, row in map_data.iterrows():
+                folium.CircleMarker(
+                    location=(row["latitude"], row["longitude"]),
+                    radius=get_marker_size(row["Prozentualer Füllstand"]),
+                    color="blue",
+                    fill=True,
+                    fill_color="blue",
+                    fill_opacity=0.6,
+                    popup=f"Tank-ID: {row['Tank-ID']}\nFüllstand: {row['Füllstand']}%\nProzentualer Füllstand: {row['Prozentualer Füllstand']}%",
+                ).add_to(m)
+            # Display the map in Streamlit
+            st_folium(m, width=700)
 
 
 # Call the dashboard function
