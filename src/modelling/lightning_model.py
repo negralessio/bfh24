@@ -20,15 +20,15 @@ class PLModel(pl.LightningModule):
         input, target = batch
         y_pred = self.model(input)
         loss = self.loss_fn(target, y_pred)
-        self.log(name="train_loss", value=loss, on_step=False, on_epoch=True)
+        self.log(name="train_loss", value=loss, on_step=False, on_epoch=True, logger=True)
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx):
         input, target = batch
         y_pred = self.model(input)
-        test_loss = self.loss_fn(target, y_pred)
-        self.log(name="val_loss", value=test_loss, on_step=False, on_epoch=True)
-        return test_loss
+        val_loss = self.loss_fn(target, y_pred)
+        self.log(name="val_loss", value=val_loss, on_step=False, on_epoch=True, logger=True)
+        return val_loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
