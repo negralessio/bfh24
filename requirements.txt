@@ -9,5 +9,6 @@ PyYAML==6.0.2
 requests==2.32.3
 requests_cache==1.2.1
 retry-requests==2.0.0
+scikit-learn==1.0.2
 seaborn==0.13.2
 streamlit==1.39.0
