@@ -86,3 +86,15 @@ class OilPriceAPI:
         df["PLZ"] = plz
 
         return df
+
+
+# main
+if __name__ == "__main__":
+
+    api = OilPriceAPI()
+    df = api.get_heizoel(77709, "2021-10-12", "2024-10-12")
+
+    if df is not None:
+        print(df)
+    else:
+        print("No data found or failed to retrieve data.")
