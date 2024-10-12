@@ -1,7 +1,8 @@
 import pandas as pd
 import streamlit as st
 from streamlit_extras.grid import grid
-from src.api import OilPriceAPI
+from src.api import OilPriceAPI, WeatherAPI
+from datetime import datetime, timedelta
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -45,6 +46,9 @@ def load_data(file_path: str) -> pd.DataFrame:
 
     # Rename Date to Zeitstempel
     all_oil_prices.rename(columns={"Date": "Zeitstempel"}, inplace=True)
+
+    # Rename Linear Prozentwert to Prozentualer Füllstand
+    data.rename(columns={"Linear Prozentwert": "Prozentualer Füllstand"}, inplace=True)
     # Format to timestamp
     all_oil_prices["Zeitstempel"] = pd.to_datetime(all_oil_prices["Zeitstempel"])
 
@@ -59,14 +63,87 @@ def load_data(file_path: str) -> pd.DataFrame:
     # Today DataSet
     today_data = data.sort_values("Zeitstempel").groupby("Tank-ID").tail(1)
     today_data = today_data[
-        ["Tank-ID", "Füllstand", "Linear Prozentwert", "Maximale Füllgrenze", "Temperatur", "PLZ", "Oil Price"]
+        [
+            "Tank-ID",
+            "Füllstand",
+            "Prozentualer Füllstand",
+            "Maximale Füllgrenze",
+            "PLZ",
+            "Oil Price",
+            "Längengrad",
+            "Breitengrad",
+        ]
     ]
 
     # Yesterday DataSet
     yesterday_data = data.sort_values("Zeitstempel").groupby("Tank-ID").nth(-2)
     yesterday_data = yesterday_data[
-        ["Tank-ID", "Füllstand", "Linear Prozentwert", "Maximale Füllgrenze", "Temperatur", "PLZ", "Oil Price"]
+        [
+            "Tank-ID",
+            "Füllstand",
+            "Prozentualer Füllstand",
+            "Maximale Füllgrenze",
+            "PLZ",
+            "Oil Price",
+            "Längengrad",
+            "Breitengrad",
+        ]
     ]
+
+    # Get all Tank-IDs with Latitude and Longitude
+    tank_ids_wth = data[["Tank-ID", "Längengrad", "Breitengrad"]].drop_duplicates()
+
+    # for each get the Weather data
+    weather_api = WeatherAPI()
+    start_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+
+    results = []
+    for index, tank in tank_ids_wth.iterrows():
+        tank_id = tank["Tank-ID"]  # Retrieve tank ID
+        lat = tank["Breitengrad"]  # Retrieve latitude
+        lon = tank["Längengrad"]  # Retrieve longitude
+
+        # Get weather data for the current tank
+        weather_data = weather_api.get_data(lat, lon, start_date, end_date)
+
+        # Calculate mean temperature
+        mean_temp = weather_data["temperature_2m_mean"].mean()
+
+        results.append((tank_id, mean_temp))
+
+    # Add Results to today_data based on tank_id
+    for tank_id, mean_temp in results:
+        today_data.loc[today_data["Tank-ID"] == tank_id, "Avg. Temperatur (+15 Tage)"] = mean_temp
+        yesterday_data.loc[yesterday_data["Tank-ID"] == tank_id, "Avg. Temperatur (+15 Tage)"] = mean_temp
+
+    # Today DataSet Final
+    today_data = today_data[
+        [
+            "Tank-ID",
+            "Füllstand",
+            "Prozentualer Füllstand",
+            "Maximale Füllgrenze",
+            "PLZ",
+            "Oil Price",
+            "Avg. Temperatur (+15 Tage)",
+        ]
+    ]
+    today_data["Avg. Temperatur (+15 Tage)"] = today_data["Avg. Temperatur (+15 Tage)"].round(2)
+
+    # Yesterday DataSet Final
+    yesterday_data = yesterday_data[
+        [
+            "Tank-ID",
+            "Füllstand",
+            "Prozentualer Füllstand",
+            "Maximale Füllgrenze",
+            "PLZ",
+            "Oil Price",
+            "Avg. Temperatur (+15 Tage)",
+        ]
+    ]
+    yesterday_data["Avg. Temperatur (+15 Tage)"] = yesterday_data["Avg. Temperatur (+15 Tage)"].round(2)
 
     return today_data, yesterday_data
 
@@ -112,11 +189,11 @@ def view_dashboard_page(CFG: dict) -> None:
             step=1,
             help="Filter tanks with Linearer Prozentwert less than or equal to this value",
         )
-        filtered_data_today = filtered_data_today[filtered_data_today["Linear Prozentwert"] <= max_percentage]
+        filtered_data_today = filtered_data_today[filtered_data_today["Prozentualer Füllstand"] <= max_percentage]
 
         # Yesterday - Linearer Prozentwert filter
         filtered_data_yesterday = filtered_data_yesterday[
-            filtered_data_yesterday["Linear Prozentwert"] <= max_percentage
+            filtered_data_yesterday["Prozentualer Füllstand"] <= max_percentage
         ]
 
     # Grid layout for dashboard metrics
@@ -140,8 +217,8 @@ def view_dashboard_page(CFG: dict) -> None:
     with my_grid.container():
         st.metric(
             "Avg. Utilization in percent",
-            f"{filtered_data_today['Linear Prozentwert'].mean():.2f}%",
-            f"{filtered_data_today['Linear Prozentwert'].mean() - filtered_data_yesterday['Linear Prozentwert'].mean():.2f}",
+            f"{filtered_data_today['Prozentualer Füllstand'].mean():.2f}%",
+            f"{filtered_data_today['Prozentualer Füllstand'].mean() - filtered_data_yesterday['Prozentualer Füllstand'].mean():.2f}",
         )
 
     with my_grid.container():
@@ -163,8 +240,8 @@ def view_dashboard_page(CFG: dict) -> None:
             st.dataframe(
                 filtered_data_today.sort_values("Tank-ID"),
                 column_config={
-                    "Linear Prozentwert": st.column_config.ProgressColumn(
-                        "Linearer Prozentwert",
+                    "Prozentualer Füllstand": st.column_config.ProgressColumn(
+                        "Prozentualer Füllstand",
                         help="The linear percentage value",
                         format="%f%%",
                         min_value=0,
@@ -179,8 +256,8 @@ def view_dashboard_page(CFG: dict) -> None:
             st.dataframe(
                 filtered_data_yesterday.sort_values("Tank-ID"),
                 column_config={
-                    "Linear Prozentwert": st.column_config.ProgressColumn(
-                        "Linearer Prozentwert",
+                    "Prozentualer Füllstand": st.column_config.ProgressColumn(
+                        "Prozentualer Füllstand",
                         help="The linear percentage value",
                         format="%f%%",
                         min_value=0,
