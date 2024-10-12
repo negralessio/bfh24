@@ -4,7 +4,8 @@ Challenge: **Recommendation for the optimised post-purchase timing of oil, takin
 ## 📚 Pipeline Description
 * Using weather forecasting API
 * [ ] Implementing oil price forcasting
-* [ ] Implementing oil consumption forcasting
+* [ ] Implementing oil consumption forcasting (based on historical consumption and fitting historical weather data)
+   * Models to be used: ARIMA, LSTM, Prophet
 * [ ] Implementing Rule based system for recommendation (Comparison between current and forecasted values (oil price in euro/liters)
 
 ## 👨🏽‍💻 Setup Project
