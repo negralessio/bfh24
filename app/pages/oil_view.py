@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np 
+from datetime import datetime
 
 from src.forcasting import run_oil_consumption_forecasting, get_cleaned_data, fit_linear_model
 
@@ -99,22 +100,26 @@ def view_oil_forecast_page(CFG: dict) -> None:
             # Add Füllstand
             y_train = y_train.merge(filtered_data[["Zeitstempel", "Füllstand"]], left_on=["Zeitstempel"], right_on=["Zeitstempel"], how="left")
             y_pred_future["Füllstand"] = current_liters
-            y_pred_future["Füllstand"] = y_pred_future["Füllstand"] - y_pred_future["Verbrauch"]
+            y_pred_future["Verbrauch kummuliert"] = y_pred_future['Verbrauch'].cumsum()
+            y_pred_future["Füllstand"] = y_pred_future["Füllstand"] - y_pred_future["Verbrauch kummuliert"]
             y_pred_future["Prognostizierter Füllstand"] = y_pred_future["Füllstand"]
             y_pred_future.drop("Füllstand", axis=1, inplace=True)
 
-            print(y_pred_future)
             consumption_mean = filtered_data.sort_values('Zeitstempel', ascending=False).head(5)['Verbrauch'].sum() / 5
-            print(np.abs(consumption_mean))
-            prog_days = int(np.abs(current_liters / consumption_mean))
+            #prog_days = int(np.abs(current_liters / consumption_mean))
 
-            #reserve_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < reserve].head(1)["Zeitstempel"].values[0]
-            #leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head().values[0]
+            reserve_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < reserve].head(1)["Zeitstempel"].values[0]
+            today = datetime.today()
+            # Differenz in Tagen berechnen
+            #days_difference = (today - datetime((reserve_kauf))).days
+            reserve_kauf = str(reserve_kauf).split('T')[0]
+
+            leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head().values[0]
 
             st.metric(
                 "Need to buy (at a reserve of 20%):",
-                f"{reserve} liters",
-                f"in {prog_days} days"
+                f"{reserve} liters\n",
+                f"on {reserve_kauf}"
             )
 
         with col4:
