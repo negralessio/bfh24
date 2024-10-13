@@ -3,10 +3,12 @@ import streamlit as st
 from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
-import openai
+from openai import OpenAI
 import plotly.express as px
+import time
 
-openai.api_key = None
+# Initialize the OpenAI client
+client = OpenAI(api_key=None)  # Ensure the API key is stored as an environment variable
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -319,8 +321,6 @@ def view_dashboard_page(CFG: dict) -> None:
             st.plotly_chart(fig)
 
         with tab4:
-            st.subheader("Chat with ChatGPT")
-
             # Initialize chat history
             if "messages" not in st.session_state:
                 st.session_state.messages = []
@@ -331,25 +331,40 @@ def view_dashboard_page(CFG: dict) -> None:
                     st.markdown(message["content"])
 
             # User input
-            if prompt := st.chat_input("Ask me anything about the dashboard!"):
+            if prompt := st.chat_input("Ask me anything about today's data!"):
                 # Display user message in chat message container
                 st.chat_message("user").markdown(prompt)
                 # Add user message to chat history
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
-                # Function to get response from ChatGPT
-                def get_chatgpt_response(prompt):
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4",  # Specify the model you want to use
-                        messages=[
-                            {"role": "system", "content": "You are a helpful assistant."},
-                            {"role": "user", "content": prompt},
-                        ],
-                    )
-                    return response.choices[0].message["content"].strip()
+                # Function to get response from OpenAI using the new client
+                def get_chatgpt_response(prompt, dataframe):
+                    df_string = dataframe.to_string(index=False)
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant who can answer questions about a given dataset.",
+                        },
+                        {"role": "user", "content": f"Here is the data:\n{df_string}\n\n{prompt}"},
+                    ]
 
-                # Generate response with ChatGPT
-                response = get_chatgpt_response(prompt)
+                    # Retry mechanism
+                    for attempt in range(3):  # Try up to 3 times
+                        try:
+                            completion = client.chat.completions.create(
+                                model="gpt-4o", messages=messages, max_tokens=150  # Use a chat model
+                            )
+                            return completion.choices[0].message.content.strip()
+                        except Exception as e:
+                            if attempt < 3:  # If not the last attempt, wait and retry
+                                time.sleep(5)  # Wait for 2 seconds before retrying
+                            else:
+                                st.error("Failed to get a response from the API. Please try again later.")
+                                print(f"API error: {e}")
+                                return "Sorry, I couldn't process your request."
+
+                # Generate response with OpenAI using the filtered DataFrame
+                response = get_chatgpt_response(prompt, filtered_data_today)
                 with st.chat_message("assistant"):
                     st.markdown(response)
 
