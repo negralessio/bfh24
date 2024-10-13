@@ -3,8 +3,10 @@ import streamlit as st
 from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
-import folium
-from streamlit_folium import st_folium
+import openai
+import plotly.express as px
+
+openai.api_key = None
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -240,7 +242,7 @@ def view_dashboard_page(CFG: dict) -> None:
     # Row 2: Display Tank information
     with my_grid.container():
         # Create tabs for Today and Yesterday data
-        tab1, tab2, tab3 = st.tabs(["Today", "Yesterday", "GeoMap"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Today", "Yesterday", "GeoMap-Füllstand", "Karl Klammer"])
 
         with tab1:
             st.dataframe(
@@ -275,28 +277,85 @@ def view_dashboard_page(CFG: dict) -> None:
             )
 
         with tab3:
-            # Create a map
-            map_data = yesterday_data.rename(columns={"Breitengrad": "latitude", "Längengrad": "longitude"})
-            m = folium.Map(location=[map_data["latitude"].mean(), map_data["longitude"].mean()], zoom_start=12)
+            # Neue Spalte für die Kategorien basierend auf dem Prozentualen Füllstand
+            def set_category(fuellstand):
+                if fuellstand > 60:
+                    return "Grün >60%"
+                elif fuellstand > 30:
+                    return "Orange <60%"
+                else:
+                    return "Rot <30%"
 
-            # Function to determine the size of the markers
-            def get_marker_size(prozentualer_fuellstand):
-                return prozentualer_fuellstand * 0.2  # Adjust scaling as needed
+            # Kategorien hinzufügen
+            filtered_data_today["category"] = filtered_data_today["Prozentualer Füllstand"].apply(set_category)
 
-            # Add markers to the map
-            for _, row in map_data.iterrows():
-                folium.CircleMarker(
-                    location=(row["latitude"], row["longitude"]),
-                    radius=get_marker_size(row["Prozentualer Füllstand"]),
-                    color="blue",
-                    fill=True,
-                    fill_color="blue",
-                    fill_opacity=0.6,
-                    popup=f"Tank-ID: {row['Tank-ID']}\nFüllstand: {row['Füllstand']}%\nProzentualer Füllstand: {row['Prozentualer Füllstand']}%",
-                ).add_to(m)
-            # Display the map in Streamlit
-            st_folium(m, width=700)
+            # Farbzuordnung basierend auf den Kategorien
+            color_map = {"Grün >60%": "green", "Orange <60%": "orange", "Rot <30%": "red"}
+
+            # Karte erstellen mit Plotly
+            fig = px.scatter_mapbox(
+                filtered_data_today,
+                lat="Breitengrad",
+                lon="Längengrad",
+                size="Prozentualer Füllstand",  # Größe der Punkte nach Prozentualer Füllstand
+                hover_name="Tank-ID",
+                hover_data=["Füllstand", "Oil Price"],
+                color="category",  # Kategorien für die Farbe verwenden
+                color_discrete_map=color_map,  # Farben basierend auf den Kategorien festlegen
+                zoom=10,
+                height=600,
+            )
+
+            # Plotly Mapbox Stil setzen
+            fig.update_layout(mapbox_style="open-street-map")
+
+            # Legende anpassen
+            fig.update_layout(
+                legend_title_text="Füllstand-Schwellenwerte",
+                legend=dict(itemsizing="constant", orientation="h", x=0.5, xanchor="center", y=1.1),
+            )
+
+            # In Streamlit anzeigen
+            st.plotly_chart(fig)
+
+        with tab4:
+            st.subheader("Chat with ChatGPT")
+
+            # Initialize chat history
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
+
+            # Display chat history
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            # User input
+            if prompt := st.chat_input("Ask me anything about the dashboard!"):
+                # Display user message in chat message container
+                st.chat_message("user").markdown(prompt)
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+
+                # Function to get response from ChatGPT
+                def get_chatgpt_response(prompt):
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4",  # Specify the model you want to use
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": prompt},
+                        ],
+                    )
+                    return response.choices[0].message["content"].strip()
+
+                # Generate response with ChatGPT
+                response = get_chatgpt_response(prompt)
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+
+                # Add assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 # Call the dashboard function
-view_dashboard_page(CFG={})
+# view_dashboard_page(CFG={})
