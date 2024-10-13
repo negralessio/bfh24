@@ -240,7 +240,7 @@ def view_dashboard_page(CFG: dict) -> None:
     # Row 2: Display Tank information
     with my_grid.container():
         # Create tabs for Today and Yesterday data
-        tab1, tab2, tab3 = st.tabs(["Today", "Yesterday", "GeoMap"])
+        tab1, tab2, tab3 = st.tabs(["Today", "Yesterday", "GeoMap-Füllstand"])
 
         with tab1:
             st.dataframe(
@@ -275,26 +275,47 @@ def view_dashboard_page(CFG: dict) -> None:
             )
 
         with tab3:
+            # Neue Spalte für die Kategorien basierend auf dem Prozentualen Füllstand
+            def set_category(fuellstand):
+                if fuellstand > 60:
+                    return "Grün >60%"
+                elif fuellstand > 30:
+                    return "Orange <60%"
+                else:
+                    return "Rot <30%"
+
+            # Kategorien hinzufügen
+            filtered_data_today["category"] = filtered_data_today["Prozentualer Füllstand"].apply(set_category)
+
+            # Farbzuordnung basierend auf den Kategorien
+            color_map = {"Grün >60%": "green", "Orange <60%": "orange", "Rot <30%": "red"}
+
             # Karte erstellen mit Plotly
             fig = px.scatter_mapbox(
-                today_data,
+                filtered_data_today,
                 lat="Breitengrad",
                 lon="Längengrad",
                 size="Prozentualer Füllstand",  # Größe der Punkte nach Prozentualer Füllstand
                 hover_name="Tank-ID",
                 hover_data=["Füllstand", "Oil Price"],
-                color_discrete_sequence=["blue"],
+                color="category",  # Kategorien für die Farbe verwenden
+                color_discrete_map=color_map,  # Farben basierend auf den Kategorien festlegen
                 zoom=10,
                 height=600,
             )
 
             # Plotly Mapbox Stil setzen
             fig.update_layout(mapbox_style="open-street-map")
-            fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+
+            # Legende anpassen
+            fig.update_layout(
+                legend_title_text="Füllstand-Schwellenwerte",
+                legend=dict(itemsizing="constant", orientation="h", x=0.5, xanchor="center", y=1.1),
+            )
 
             # In Streamlit anzeigen
             st.plotly_chart(fig)
 
 
 # Call the dashboard function
-view_dashboard_page(CFG={})
+# view_dashboard_page(CFG={})
