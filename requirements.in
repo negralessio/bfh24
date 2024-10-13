@@ -1,0 +1,15 @@
+colorlog
+jupyter
+matplotlib
+numpy
+openmeteo-requests
+pandas
+pre-commit
+PyYAML
+requests
+requests_cache
+retry-requests
+scikit-learn
+seaborn
+streamlit
+tensorflow
