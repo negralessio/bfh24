@@ -3,48 +3,12 @@ from streamlit_extras.grid import grid
 import plotly.graph_objects as go
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np 
+
+from src.forcasting import run_oil_consumption_forecasting, get_cleaned_data, fit_linear_model
 
 
 # Charts
-def create_fuel_gauge(fuel_level, max_fuel_level, min_value=0, max_value=None):
-    """
-    Creates a gauge chart for fuel levels in liters.
-
-    Parameters:
-    - fuel_level (int or float): Current fuel level in liters.
-    - max_fuel_level (int or float): Maximum fuel capacity in liters.
-    - min_value (int or float): Minimum value for the gauge.
-    - max_value (int or float): Maximum value for the gauge. If None, defaults to max_fuel_level.
-
-    Returns:
-    - fig: Plotly figure object.
-    """
-    if max_value is None:
-        max_value = max_fuel_level  # Default max value to max_fuel_level if not specified
-
-    # Create the gauge chart
-    fig = go.Figure(
-        go.Indicator(
-            mode="gauge+number",
-            value=fuel_level,
-            title={"text": "Fuel Level (Liters)"},
-            gauge={
-                "axis": {"range": [min_value, max_value]},
-                "bar": {"color": "blue"},
-                "steps": [
-                    {"range": [min_value, max_value * 0.5], "color": "lightgray"},
-                    {"range": [max_value * 0.5, max_value], "color": "orange"},
-                ],
-                "threshold": {"line": {"color": "red", "width": 4}, "thickness": 0.75, "value": max_value * 0.8},
-            },
-        )
-    )
-
-    # Set the layout to control the size
-    fig.update_layout(height=200, width=400)  # Adjust height and width as needed
-
-    return fig
-
 
 def load_data(file_path: str):
     df = pd.read_pickle(file_path)
@@ -77,12 +41,21 @@ def view_oil_forecast_page(CFG: dict) -> None:
     with st.sidebar:
         tank_id = st.selectbox("Select the tank", list(df["Tank-ID"].unique()))
         number_of_days = st.slider(
-            "Select number of days",
+            "Select number of historical days",
             min_value=1,
             max_value=len(df[df["Tank-ID"] == tank_id]["Zeitstempel"]),
             value=90,
             step=1,
             help="Show oil consumption of the last n days",
+        )
+
+        number_of_forecast = st.slider(
+            "Select number of days to forecast",
+            min_value=1,
+            max_value=30,
+            value=14,
+            step=1,
+            help="Number of days to forecast the oil consumption",
         )
 
     # Content
@@ -99,40 +72,97 @@ def view_oil_forecast_page(CFG: dict) -> None:
         with col1:
             st.metric(
                 "Current liters of oil:",
-                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]}",
+                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]} liters",
             )
         with col2:
             st.metric(
                 "Maximum charge:",
-                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Maximale Füllgrenze'].values[0]}",
+                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Maximale Füllgrenze'].values[0]} liters",
             )
 
     # Row 2:
     with my_grid.container():
         col3, col4 = st.columns(2)  # Create two columns for the second row
         with col3:
+            reserve = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Warnungsfüllstand'].values[0]
+            current_liters = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]
+
+            clean_data = get_cleaned_data()
+            y_train, y_pred, y_pred_future = fit_linear_model(df=clean_data, context=2, forecast_days=10000)
+
+             # Convert timestamps
+            y_train["Zeitstempel"] = y_train["Zeitstempel"].astype("datetime64[ns]")
+            y_pred["Zeitstempel"] = y_pred["Zeitstempel"].astype("datetime64[ns]")
+            y_pred_future["Zeitstempel"] = y_pred_future["Zeitstempel"].astype("datetime64[ns]")
+            filtered_data["Zeitstempel"] = filtered_data["Zeitstempel"].astype("datetime64[ns]")
+
+            # Add Füllstand
+            y_train = y_train.merge(filtered_data[["Zeitstempel", "Füllstand"]], left_on=["Zeitstempel"], right_on=["Zeitstempel"], how="left")
+            y_pred_future["Füllstand"] = current_liters
+            y_pred_future["Füllstand"] = y_pred_future["Füllstand"] - y_pred_future["Verbrauch"]
+            y_pred_future["Prognostizierter Füllstand"] = y_pred_future["Füllstand"]
+            y_pred_future.drop("Füllstand", axis=1, inplace=True)
+
+            print(y_pred_future)
+            consumption_mean = filtered_data.sort_values('Zeitstempel', ascending=False).head(5)['Verbrauch'].sum() / 5
+            print(np.abs(consumption_mean))
+            prog_days = int(np.abs(current_liters / consumption_mean))
+
+            #reserve_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < reserve].head(1)["Zeitstempel"].values[0]
+            #leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head().values[0]
+
             st.metric(
                 "Need to buy (at a reserve of 20%):",
-                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Warnungsfüllstand'].values[0]}",
+                f"{reserve} liters",
+                f"in {prog_days} days"
             )
 
         with col4:
             consumption_yesterday = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Verbrauch'].values[0]
             consumption_yesterday_2 = filtered_data.sort_values('Zeitstempel', ascending=False).head(2).tail(1)['Verbrauch'].values[0]
             st.metric("Oil consumption yesterday:", 
-                      f"{consumption_yesterday}",
-                      f"{consumption_yesterday_2 - consumption_yesterday}",)
+                      f"{np.abs(consumption_yesterday)}",
+                      f"{np.abs(consumption_yesterday_2 - consumption_yesterday)}",)
 
     # Row 3
     with my_grid.container():
+        current_liters = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]
         filtered_data = filtered_data.sort_values("Zeitstempel").tail(number_of_days)
-        st.line_chart(
-            data=filtered_data,
-            x="Zeitstempel",
-            y=["Füllstand", "Warnungsfüllstand", "Maximale Füllgrenze"],
-            color=["#0000FF", "#FF0000", "#FF0000"],
-        )
+        # st.line_chart(
+        #     data=filtered_data,
+        #     x="Zeitstempel",
+        #     y=["Füllstand", "Warnungsfüllstand", "Maximale Füllgrenze"],
+        #     color=["#0000FF", "#FF0000", "#FF0000"],
+        # )
 
+        clean_data = get_cleaned_data()
+        y_train, y_pred, y_pred_future = fit_linear_model(df=clean_data, context=number_of_days, forecast_days=number_of_forecast, degree=1)
+
+        # Convert timestamps
+        y_train["Zeitstempel"] = y_train["Zeitstempel"].astype("datetime64[ns]")
+        y_pred["Zeitstempel"] = y_pred["Zeitstempel"].astype("datetime64[ns]")
+        y_pred_future["Zeitstempel"] = y_pred_future["Zeitstempel"].astype("datetime64[ns]")
+        filtered_data["Zeitstempel"] = filtered_data["Zeitstempel"].astype("datetime64[ns]")
+
+        # Add Füllstand
+        y_train = y_train.merge(filtered_data[["Zeitstempel", "Füllstand"]], left_on=["Zeitstempel"], right_on=["Zeitstempel"], how="left")
+        y_pred_future["Füllstand"] = current_liters
+        y_pred_future["Füllstand"] = y_pred_future["Füllstand"] - y_pred_future["Verbrauch"]
+        y_pred_future["Prognostizierter Füllstand"] = y_pred_future["Füllstand"]
+        y_pred_future.drop("Füllstand", axis=1, inplace=True)
+
+        # Füllstand
+        # Is_pred
+
+        df_plot = pd.concat([y_train, y_pred_future], axis=0, ignore_index=True)
+        df_plot = df_plot.merge(filtered_data[["Zeitstempel", "Warnungsfüllstand", "Maximale Füllgrenze"]], how="left", left_on=["Zeitstempel"], right_on=["Zeitstempel"])
+
+        st.line_chart(
+            data=df_plot,
+            x="Zeitstempel",
+            y=["Prognostizierter Füllstand", "Füllstand", "Warnungsfüllstand", "Maximale Füllgrenze"],
+            color=["#0000FF", "#FF0000", "#000000", "#FF0000"],
+        )
 
 # Assuming this function is called to render the page
 # view_dashboard_page({})

@@ -7,17 +7,17 @@ from sklearn.metrics import r2_score
 
 from src.api import OilPriceAPI
 
-from utils.config_manager import ConfigManager
+from src.utils.config_manager import ConfigManager
 
 # Load the config file
-config_manager = ConfigManager("../configs/config.yaml")
+config_manager = ConfigManager("configs/config.yaml")
 config = config_manager.config
 
 
 def get_data(tank_id: int) -> tuple:
     """Get the data corresponding to the tank_id."""
-    data = pd.read_pickle("../data/preprocessed/final_data.pickle")
-    data = data[data["tank_id"] == tank_id]
+    data = pd.read_pickle("data/processed/final_data.pickle")
+    data = data[data["Tank-ID"] == tank_id]
     y_train = data["Verbrauch"]
     X_train = data.drop("Verbrauch", axis=1)
     return X_train, y_train
@@ -34,9 +34,10 @@ def run_oil_consumption_forecasting(context_num, forcast_num, tank_id, degree=3)
     X_index = X_train.index
 
     # Train and predict
-    if config["models"]["oil_consumption"] == "polyReg":
+    print(config["models"]["oilConsumption"])
+    if config["models"]["oilConsumption"] == "polyReg":
         pass
-    if config["models"]["oil_consumption"] == "rf":
+    elif config["models"]["oilConsumption"] == "rf":
         pass
     else:
         raise ValueError("Invalid model for oil consumption forecasting")
@@ -80,7 +81,7 @@ def run_oil_price_forecasting(context_num, forcast_num, tank_id):
     return df
 
 
-def get_cleaned_data(path="../data/processed/data_one_day_clean.pickle") -> pd.DataFrame:
+def get_cleaned_data(path="data/processed/data_one_day_clean.pickle") -> pd.DataFrame:
     df = pd.read_pickle(path)
     # correct outliers
     df.loc[df["Verbrauch"] > 0, "Verbrauch"] = 0.0
