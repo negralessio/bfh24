@@ -1,4 +1,9 @@
 import pandas as pd
+import numpy as np
+
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import r2_score
 
 from src.api import OilPriceAPI
 
@@ -73,3 +78,50 @@ def run_oil_price_forecasting(context_num, forcast_num, tank_id):
     df = pd.concat([tmp_y_train, tmp_y_forcast])
 
     return df
+
+
+def get_cleaned_data(path="../data/processed/data_one_day_clean.pickle") -> pd.DataFrame:
+    df = pd.read_pickle(path)
+    # correct outliers
+    df.loc[df["Verbrauch"] > 0, "Verbrauch"] = 0.0
+    # take absolute values
+    df["Verbrauch"] = df["Verbrauch"].abs()
+    # drop NaN values
+    df = df.dropna()
+    df = df[["Zeitstempel", "Verbrauch"]]
+
+    return df
+
+
+def fit_linear_model(df: pd.DataFrame, context: int = 90, degree: int = 3, forecast_days: int = 7):
+    # Get newest -Days Tage
+    y = df["Verbrauch"].iloc[-context:].values.reshape(-1, 1)
+    X = np.arange(len(y)).reshape(-1, 1)
+    dates = df["Zeitstempel"].iloc[-context:].values
+    future_days = pd.date_range(start=dates.max() + pd.Timedelta(days=1), periods=forecast_days, freq="D")
+
+    # Extend feature space to make polynomial regression
+    poly = PolynomialFeatures(degree)
+    X_poly = poly.fit_transform(X)
+
+    # Fit linear regression with polynomial features
+    lr = LinearRegression()
+    lr.fit(X_poly, y)
+    # Get best fitted line
+    y_pred = lr.predict(X_poly)
+
+    # Evaluate best fitted line
+    r2 = r2_score(y_true=y, y_pred=y_pred)
+
+    future_days_to_predict = np.arange(X.max(), X.max() + forecast_days).reshape(-1, 1)
+    # Get prediction for future days
+    future_days_extened = poly.transform(future_days_to_predict)
+    y_pred_future = lr.predict(future_days_extened).flatten()
+
+    y_train = pd.DataFrame({"Verbrauch": y.flatten(), "Zeitstempel": dates}, index=X.flatten())
+    y_pred = pd.DataFrame({"Verbrauch": y_pred.flatten(), "Zeitstempel": dates}, index=X.flatten())
+    y_pred_future = pd.DataFrame(
+        {"Verbrauch": y_pred_future.flatten(), "Zeitstempel": future_days}, index=future_days_to_predict.flatten()
+    )
+
+    return y_train, y_pred, y_pred_future
