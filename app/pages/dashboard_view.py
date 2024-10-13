@@ -4,7 +4,7 @@ from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
 import folium
-from streamlit_folium import st_folium
+import plotly.express as px
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -275,27 +275,25 @@ def view_dashboard_page(CFG: dict) -> None:
             )
 
         with tab3:
-            # Create a map
-            map_data = yesterday_data.rename(columns={"Breitengrad": "latitude", "Längengrad": "longitude"})
-            m = folium.Map(location=[map_data["latitude"].mean(), map_data["longitude"].mean()], zoom_start=12)
+            # Karte erstellen mit Plotly
+            fig = px.scatter_mapbox(
+                today_data,
+                lat="Breitengrad",
+                lon="Längengrad",
+                size="Prozentualer Füllstand",  # Größe der Punkte nach Prozentualer Füllstand
+                hover_name="Tank-ID",
+                hover_data=["Füllstand", "Oil Price"],
+                color_discrete_sequence=["blue"],
+                zoom=10,
+                height=600,
+            )
 
-            # Function to determine the size of the markers
-            def get_marker_size(prozentualer_fuellstand):
-                return prozentualer_fuellstand * 0.2  # Adjust scaling as needed
+            # Plotly Mapbox Stil setzen
+            fig.update_layout(mapbox_style="open-street-map")
+            fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
 
-            # Add markers to the map
-            for _, row in map_data.iterrows():
-                folium.CircleMarker(
-                    location=(row["latitude"], row["longitude"]),
-                    radius=get_marker_size(row["Prozentualer Füllstand"]),
-                    color="blue",
-                    fill=True,
-                    fill_color="blue",
-                    fill_opacity=0.6,
-                    popup=f"Tank-ID: {row['Tank-ID']}\nFüllstand: {row['Füllstand']}%\nProzentualer Füllstand: {row['Prozentualer Füllstand']}%",
-                ).add_to(m)
-            # Display the map in Streamlit
-            st_folium(m, width=700)
+            # In Streamlit anzeigen
+            st.plotly_chart(fig)
 
 
 # Call the dashboard function
