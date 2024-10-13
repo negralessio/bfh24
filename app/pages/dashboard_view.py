@@ -3,8 +3,12 @@ import streamlit as st
 from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
-import folium
+from openai import OpenAI
 import plotly.express as px
+import time
+
+# Initialize the OpenAI client
+client = OpenAI(api_key=None)  # Ensure the API key is stored as an environment variable
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -240,7 +244,7 @@ def view_dashboard_page(CFG: dict) -> None:
     # Row 2: Display Tank information
     with my_grid.container():
         # Create tabs for Today and Yesterday data
-        tab1, tab2, tab3 = st.tabs(["Today", "Yesterday", "GeoMap"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Today", "Yesterday", "GeoMap-Füllstand", "Karl Klammer"])
 
         with tab1:
             st.dataframe(
@@ -275,26 +279,98 @@ def view_dashboard_page(CFG: dict) -> None:
             )
 
         with tab3:
+            # Neue Spalte für die Kategorien basierend auf dem Prozentualen Füllstand
+            def set_category(fuellstand):
+                if fuellstand > 60:
+                    return "Grün >60%"
+                elif fuellstand > 30:
+                    return "Orange <60%"
+                else:
+                    return "Rot <30%"
+
+            # Kategorien hinzufügen
+            filtered_data_today["category"] = filtered_data_today["Prozentualer Füllstand"].apply(set_category)
+
+            # Farbzuordnung basierend auf den Kategorien
+            color_map = {"Grün >60%": "green", "Orange <60%": "orange", "Rot <30%": "red"}
+
             # Karte erstellen mit Plotly
             fig = px.scatter_mapbox(
-                today_data,
+                filtered_data_today,
                 lat="Breitengrad",
                 lon="Längengrad",
                 size="Prozentualer Füllstand",  # Größe der Punkte nach Prozentualer Füllstand
                 hover_name="Tank-ID",
                 hover_data=["Füllstand", "Oil Price"],
-                color_discrete_sequence=["blue"],
+                color="category",  # Kategorien für die Farbe verwenden
+                color_discrete_map=color_map,  # Farben basierend auf den Kategorien festlegen
                 zoom=10,
                 height=600,
             )
 
             # Plotly Mapbox Stil setzen
             fig.update_layout(mapbox_style="open-street-map")
-            fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+
+            # Legende anpassen
+            fig.update_layout(
+                legend_title_text="Füllstand-Schwellenwerte",
+                legend=dict(itemsizing="constant", orientation="h", x=0.5, xanchor="center", y=1.1),
+            )
 
             # In Streamlit anzeigen
             st.plotly_chart(fig)
 
+        with tab4:
+            # Initialize chat history
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
+
+            # Display chat history
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            # User input
+            if prompt := st.chat_input("Ask me anything about today's data!"):
+                # Display user message in chat message container
+                st.chat_message("user").markdown(prompt)
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+
+                # Function to get response from OpenAI using the new client
+                def get_chatgpt_response(prompt, dataframe):
+                    df_string = dataframe.to_string(index=False)
+                    messages = [
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant who can answer questions about a given dataset.",
+                        },
+                        {"role": "user", "content": f"Here is the data:\n{df_string}\n\n{prompt}"},
+                    ]
+
+                    # Retry mechanism
+                    for attempt in range(3):  # Try up to 3 times
+                        try:
+                            completion = client.chat.completions.create(
+                                model="gpt-4o", messages=messages, max_tokens=150  # Use a chat model
+                            )
+                            return completion.choices[0].message.content.strip()
+                        except Exception as e:
+                            if attempt < 3:  # If not the last attempt, wait and retry
+                                time.sleep(5)  # Wait for 2 seconds before retrying
+                            else:
+                                st.error("Failed to get a response from the API. Please try again later.")
+                                print(f"API error: {e}")
+                                return "Sorry, I couldn't process your request."
+
+                # Generate response with OpenAI using the filtered DataFrame
+                response = get_chatgpt_response(prompt, filtered_data_today)
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+
+                # Add assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response})
+
 
 # Call the dashboard function
-view_dashboard_page(CFG={})
+# view_dashboard_page(CFG={})
