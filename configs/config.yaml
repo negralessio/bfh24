@@ -2,4 +2,4 @@
 data:
   location: "./data/processed/data_cleaned.csv"
 models:
-  oil_consumption: "polyReg"
+  oilConsumption: "polyReg"
