@@ -155,6 +155,7 @@ def view_oil_forecast_page(CFG: dict) -> None:
             st.metric(
                 "Empty on:",
                 f"{empty} ",
+                "-"
             )
 
         with col4:
