@@ -112,12 +112,16 @@ def view_oil_forecast_page(CFG: dict) -> None:
         col3, col4 = st.columns(2)  # Create two columns for the second row
         with col3:
             st.metric(
-                "Need to buy (at a reserve of ):",
+                "Need to buy (at a reserve of 20%):",
                 f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Warnungsfüllstand'].values[0]}",
             )
 
         with col4:
-            st.metric("Oil consumption yesterday:", "TBD liters", "0.00")
+            consumption_yesterday = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Verbrauch'].values[0]
+            consumption_yesterday_2 = filtered_data.sort_values('Zeitstempel', ascending=False).head(2).tail(1)['Verbrauch'].values[0]
+            st.metric("Oil consumption yesterday:", 
+                      f"{consumption_yesterday}",
+                      f"{consumption_yesterday_2 - consumption_yesterday}",)
 
     # Row 3
     with my_grid.container():
