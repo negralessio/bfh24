@@ -63,7 +63,7 @@ def _render_sidebar() -> None:
 
     with st.sidebar:
         st.image("app/assets/Logo_VEGA_Grieshaber.svg.png")
-        st.markdown(text.SIDEBAR_CONTENT)
+        # st.markdown(text.SIDEBAR_CONTENT)
 
         if st.sidebar.button("Welcome"):
             st.session_state.selected_page = "Welcome"

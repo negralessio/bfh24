@@ -3,8 +3,10 @@ import streamlit as st
 from streamlit_extras.grid import grid
 from src.api import OilPriceAPI, WeatherAPI
 from datetime import datetime, timedelta
-import folium
+import openai
 import plotly.express as px
+
+openai.api_key = None
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -240,7 +242,7 @@ def view_dashboard_page(CFG: dict) -> None:
     # Row 2: Display Tank information
     with my_grid.container():
         # Create tabs for Today and Yesterday data
-        tab1, tab2, tab3 = st.tabs(["Today", "Yesterday", "GeoMap-Füllstand"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Today", "Yesterday", "GeoMap-Füllstand", "Karl Klammer"])
 
         with tab1:
             st.dataframe(
@@ -315,6 +317,44 @@ def view_dashboard_page(CFG: dict) -> None:
 
             # In Streamlit anzeigen
             st.plotly_chart(fig)
+
+        with tab4:
+            st.subheader("Chat with ChatGPT")
+
+            # Initialize chat history
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
+
+            # Display chat history
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            # User input
+            if prompt := st.chat_input("Ask me anything about the dashboard!"):
+                # Display user message in chat message container
+                st.chat_message("user").markdown(prompt)
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+
+                # Function to get response from ChatGPT
+                def get_chatgpt_response(prompt):
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4",  # Specify the model you want to use
+                        messages=[
+                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "user", "content": prompt},
+                        ],
+                    )
+                    return response.choices[0].message["content"].strip()
+
+                # Generate response with ChatGPT
+                response = get_chatgpt_response(prompt)
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+
+                # Add assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 # Call the dashboard function
