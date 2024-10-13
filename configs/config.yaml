@@ -1,3 +1,5 @@
 # Settings regarding the data
 data:
   location: "./data/processed/data_cleaned.csv"
+models:
+  oil_consumption: "polyReg"
