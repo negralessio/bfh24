@@ -79,9 +79,41 @@ def view_oil_forecast_page(CFG: dict) -> None:
                 f"One week before: {one_week_before} liters"
             )
         with col2:
+            reserve = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Warnungsfüllstand'].values[0]
+            current_liters = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]
+
+            clean_data = get_cleaned_data()
+            y_train, y_pred, y_pred_future = fit_linear_model(df=clean_data, context=2, forecast_days=10000)
+
+             # Convert timestamps
+            y_train["Zeitstempel"] = y_train["Zeitstempel"].astype("datetime64[ns]")
+            y_pred["Zeitstempel"] = y_pred["Zeitstempel"].astype("datetime64[ns]")
+            y_pred_future["Zeitstempel"] = y_pred_future["Zeitstempel"].astype("datetime64[ns]")
+            filtered_data["Zeitstempel"] = filtered_data["Zeitstempel"].astype("datetime64[ns]")
+
+            # Add Füllstand
+            y_train = y_train.merge(filtered_data[["Zeitstempel", "Füllstand"]], left_on=["Zeitstempel"], right_on=["Zeitstempel"], how="left")
+            y_pred_future["Füllstand"] = current_liters
+            y_pred_future["Verbrauch kummuliert"] = y_pred_future['Verbrauch'].cumsum()
+            y_pred_future["Füllstand"] = y_pred_future["Füllstand"] - y_pred_future["Verbrauch kummuliert"]
+            y_pred_future["Prognostizierter Füllstand"] = y_pred_future["Füllstand"]
+            y_pred_future.drop("Füllstand", axis=1, inplace=True)
+
+            consumption_mean = filtered_data.sort_values('Zeitstempel', ascending=False).head(5)['Verbrauch'].sum() / 5
+            #prog_days = int(np.abs(current_liters / consumption_mean))
+
+            reserve_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < reserve].head(1)["Zeitstempel"].values[0]
+            today = datetime.today()
+            # Differenz in Tagen berechnen
+            #days_difference = (today - datetime((reserve_kauf))).days
+            reserve_kauf = str(reserve_kauf).split('T')[0]
+
+            leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head().values[0]
+
             st.metric(
-                "Maximum charge:",
-                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Maximale Füllgrenze'].values[0]} liters",
+                "Need to buy (at a reserve of 20%):",
+                f"{reserve_kauf}",
+                f"{reserve} liters"
             )
 
     # Row 2:
@@ -117,12 +149,12 @@ def view_oil_forecast_page(CFG: dict) -> None:
             #days_difference = (today - datetime((reserve_kauf))).days
             reserve_kauf = str(reserve_kauf).split('T')[0]
 
-            leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head().values[0]
+            leer_kauf = y_pred_future[y_pred_future["Prognostizierter Füllstand"] < 0].head(1)["Zeitstempel"].values[0]
+            empty = str(leer_kauf).split('T')[0]
 
             st.metric(
-                "Need to buy (at a reserve of 20%):",
-                f"{reserve} liters\n",
-                f"on {reserve_kauf}"
+                "Empty on:",
+                f"{empty} ",
             )
 
         with col4:
