@@ -71,9 +71,12 @@ def view_oil_forecast_page(CFG: dict) -> None:
     with my_grid.container():
         col1, col2 = st.columns(2)  # Create two columns for the first row
         with col1:
+            current_liters = filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]
+            one_week_before = filtered_data.sort_values('Zeitstempel', ascending=False).head(7).tail(1)['Füllstand'].values[0]
             st.metric(
                 "Current liters of oil:",
-                f"{filtered_data.sort_values('Zeitstempel', ascending=False).head(1)['Füllstand'].values[0]} liters",
+                f"{current_liters} liters",
+                f"One week before: {one_week_before} liters"
             )
         with col2:
             st.metric(
@@ -166,7 +169,7 @@ def view_oil_forecast_page(CFG: dict) -> None:
             data=df_plot,
             x="Zeitstempel",
             y=["Prognostizierter Füllstand", "Füllstand", "Warnungsfüllstand", "Maximale Füllgrenze"],
-            color=["#0000FF", "#FF0000", "#000000", "#FF0000"],
+            color=["#000000", "#FF0000", "#0000FF", "#FF0000"],
         )
 
 # Assuming this function is called to render the page

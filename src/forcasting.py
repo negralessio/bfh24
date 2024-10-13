@@ -99,7 +99,7 @@ def fit_linear_model(df: pd.DataFrame, context: int = 90, degree: int = 3, forec
     y = df["Verbrauch"].iloc[-context:].values.reshape(-1, 1)
     X = np.arange(len(y)).reshape(-1, 1)
     dates = df["Zeitstempel"].iloc[-context:].values
-    future_days = pd.date_range(start=dates.max() + pd.Timedelta(days=1), periods=forecast_days, freq="D")
+    future_days = pd.date_range(start=dates.max() + pd.Timedelta(days=0), periods=forecast_days, freq="D")
 
     # Extend feature space to make polynomial regression
     poly = PolynomialFeatures(degree)
