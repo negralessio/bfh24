@@ -18,7 +18,7 @@ WELCOME_TEXT = """
     ### Wer wir sind
     Das Team 'Data Pilots' besteht aus vier Data Enthusiasts:
     - Nina M.
-    - Hevin H.
+    - Kevin H.
     - Marius A.
     - Alessio N.
     """
