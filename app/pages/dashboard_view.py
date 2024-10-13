@@ -325,16 +325,12 @@ def view_dashboard_page(CFG: dict) -> None:
             if "messages" not in st.session_state:
                 st.session_state.messages = []
 
-            # Display chat history
-            for message in st.session_state.messages:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-
             # User input
-            if prompt := st.chat_input("Ask me anything about today's data!"):
-                # Display user message in chat message container
-                st.chat_message("user").markdown(prompt)
-                # Add user message to chat history
+            prompt = st.chat_input("Ask me anything about today's data!")
+
+            # Check if prompt is provided
+            if prompt:
+                # Add user message to chat history (without displaying it)
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
                 # Function to get response from OpenAI using the new client
@@ -356,8 +352,8 @@ def view_dashboard_page(CFG: dict) -> None:
                             )
                             return completion.choices[0].message.content.strip()
                         except Exception as e:
-                            if attempt < 3:  # If not the last attempt, wait and retry
-                                time.sleep(5)  # Wait for 2 seconds before retrying
+                            if attempt < 2:  # If not the last attempt, wait and retry
+                                time.sleep(5)  # Wait for 5 seconds before retrying
                             else:
                                 st.error("Failed to get a response from the API. Please try again later.")
                                 print(f"API error: {e}")
@@ -365,6 +361,8 @@ def view_dashboard_page(CFG: dict) -> None:
 
                 # Generate response with OpenAI using the filtered DataFrame
                 response = get_chatgpt_response(prompt, filtered_data_today)
+
+                # Display assistant's response
                 with st.chat_message("assistant"):
                     st.markdown(response)
 
